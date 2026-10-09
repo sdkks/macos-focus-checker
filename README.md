@@ -166,3 +166,7 @@ venv/bin/python -B -m unittest -v test_main
 also scans staged changes for secrets. Native smoke testing only verifies
 startup, bindings, run-loop operation and shutdown; it does not reproduce a real
 Firefox focus incident or prove that all workspace notifications are delivered.
+
+## License
+
+MIT; see `LICENSE` for the full terms.
