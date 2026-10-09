@@ -1,5 +1,25 @@
 # Focus diagnostics (macOS)
 
+## Why use this tool?
+
+Use this read-only monitor to investigate unexpected macOS app focus switches,
+such as a browser becoming active while you work in a terminal. It records
+observed activity so you can compare switches with nearby events rather than
+relying on memory.
+
+- Observe app activation, deactivation, lifecycle and active-Space notifications.
+- Record app names, PIDs, bundle identifiers and available version/build metadata.
+- Measure observed focus durations and flag rapid returns to the previous app.
+- Include reported ages of recent keyboard and mouse-button input, not contents;
+  availability and permissions are unverified, and ages do not identify triggers.
+- View text, TTY-colored pretty JSON or plain JSONL, while saving immediately
+  flushed JSONL records you can review for bug-report evidence.
+
+This provides correlation, not a definitive cause or a fix. It does not capture
+keystroke contents or window titles, use Accessibility monitoring, request or
+change permissions, or change focus. Logs still reveal app usage and timing:
+keep them private and review them before sharing.
+
 ## Setup and development
 
 The monitor requires macOS and PyObjC Cocoa/Quartz. Fresh development environments
