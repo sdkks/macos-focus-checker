@@ -2,19 +2,18 @@ import contextlib
 import io
 import json
 import re
-from pathlib import Path
 import signal
 import tempfile
 import unittest
-from unittest.mock import patch
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import main
 
 
 def app(pid):
-    return dict(pid=pid, name=f"App {pid}", bundle_id=f"test.{pid}",
-                version="1", build="2")
+    return dict(pid=pid, name=f"App {pid}", bundle_id=f"test.{pid}", version="1", build="2")
 
 
 class FocusTests(unittest.TestCase):
@@ -30,23 +29,29 @@ class FocusTests(unittest.TestCase):
         return [json.loads(line) for line in self.stream.getvalue().splitlines()]
 
     def test_transition_deactivation_and_rapid_return(self):
-        for event, pid, now in [("initial_focus", 1, 10), ("deactivation", 1, 12),
-                                ("activation", 2, 12.2), ("activation", 1, 13)]:
+        for event, pid, now in [
+            ("initial_focus", 1, 10),
+            ("deactivation", 1, 12),
+            ("activation", 2, 12.2),
+            ("activation", 1, 13),
+        ]:
             self.tracker.observe(event, app(pid), now)
         records = self.records()
         self.assertEqual(records[2]["previous_focus_seconds"], 2)
-        self.assertAlmostEqual(records[3]["previous_focus_seconds"], .8)
+        self.assertAlmostEqual(records[3]["previous_focus_seconds"], 0.8)
         self.assertTrue(records[3]["rapid_return"])
         self.assertEqual(records[3]["previous_app"], app(2))
 
     def test_duplicate_null_and_unrelated_events_preserve_timing(self):
-        for event, value, now in [("initial_focus", app(1), 10),
-                                  ("activation", app(1), 11),
-                                  ("activation", None, 12),
-                                  ("deactivation", app(2), 13),
-                                  ("space_change", None, 14),
-                                  ("activation", app(2), 15),
-                                  ("activation", app(1), 18)]:
+        for event, value, now in [
+            ("initial_focus", app(1), 10),
+            ("activation", app(1), 11),
+            ("activation", None, 12),
+            ("deactivation", app(2), 13),
+            ("space_change", None, 14),
+            ("activation", app(2), 15),
+            ("activation", app(1), 18),
+        ]:
             self.tracker.observe(event, value, now)
         records = self.records()
         self.assertTrue(records[1]["duplicate"])
@@ -77,9 +82,22 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(record["schema_version"], 1)
         self.assertIn("+00:00", record["observed_at"])
         self.assertEqual(set(record["app"]), {"pid", "name", "bundle_id", "version", "build"})
-        self.assertEqual(set(record), {"schema_version", "event", "observed_at",
-                         "monotonic_seconds", "timing_basis", "app", "recent_input",
-                         "duplicate", "previous_app", "previous_focus_seconds", "rapid_return"})
+        self.assertEqual(
+            set(record),
+            {
+                "schema_version",
+                "event",
+                "observed_at",
+                "monotonic_seconds",
+                "timing_basis",
+                "app",
+                "recent_input",
+                "duplicate",
+                "previous_app",
+                "previous_focus_seconds",
+                "rapid_return",
+            },
+        )
         self.assertIn("activation", self.stdout.getvalue())
 
 
@@ -88,9 +106,14 @@ class OutputTests(unittest.TestCase):
         logfile = io.StringIO()
         stdout = io.StringIO()
         stdout.isatty = lambda: tty
-        fields = dict(app={"name": 'Quote " slash \\ newline\nESC\033[31m café'},
-                      missing=None, integer=-7, number=1.25e-20, flag=True,
-                      nested=[False, {}, []])
+        fields = dict(
+            app={"name": 'Quote " slash \\ newline\nESC\033[31m café'},
+            missing=None,
+            integer=-7,
+            number=1.25e-20,
+            flag=True,
+            nested=[False, {}, []],
+        )
         with patch.dict("os.environ", environment or {}, clear=True):
             with contextlib.redirect_stdout(stdout):
                 log = main.EventLog(logfile, mode)
@@ -112,7 +135,7 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(self.decode_objects(stdout), self.decode_objects(logfile))
         self.assertIn('\n  "schema_version": 1,\n', stdout)
         self.assertNotIn("\033", stdout)
-        self.assertIn(r'\u001b[31m', stdout)
+        self.assertIn(r"\u001b[31m", stdout)
         self.assertTrue(stdout.endswith("}\n"))
         self.assertEqual(len(logfile.splitlines()), 2)
 
@@ -122,7 +145,7 @@ class OutputTests(unittest.TestCase):
         plain = re.sub(r"\x1b\[[0-9;]*m", "", stdout)
         self.assertEqual(self.decode_objects(plain), self.decode_objects(logfile))
         self.assertNotIn("\033", logfile)
-        self.assertIn(r'\u001b[31m', plain)
+        self.assertIn(r"\u001b[31m", plain)
 
     def test_jsonl_always_compact_plain_and_complete(self):
         for tty in (False, True):
@@ -131,9 +154,16 @@ class OutputTests(unittest.TestCase):
                 records = [json.loads(line) for line in stdout.splitlines()]
                 self.assertEqual(records, self.decode_objects(logfile))
                 self.assertNotIn("\033", stdout)
-                self.assertEqual(stdout, "".join(json.dumps(record, ensure_ascii=True,
-                                 allow_nan=False, separators=(",", ":")) + "\n"
-                                 for record in records))
+                self.assertEqual(
+                    stdout,
+                    "".join(
+                        json.dumps(
+                            record, ensure_ascii=True, allow_nan=False, separators=(",", ":")
+                        )
+                        + "\n"
+                        for record in records
+                    ),
+                )
 
     def test_color_opt_out_on_tty(self):
         for environment in ({"NO_COLOR": ""}, {"NO_COLOR": "1"}, {"TERM": "dumb"}):
@@ -148,8 +178,7 @@ class OutputTests(unittest.TestCase):
         with contextlib.redirect_stdout(stdout):
             main.EventLog(logfile).emit("test", 1, value=None)
         record = json.loads(logfile.getvalue())
-        self.assertEqual(stdout.getvalue(),
-                         f"[{record['observed_at']}] test: {{\"value\": null}}\n")
+        self.assertEqual(stdout.getvalue(), f'[{record["observed_at"]}] test: {{"value": null}}\n')
 
     def test_flushes_log_and_stdout_in_every_mode(self):
         for mode in ("text", "json", "jsonl"):
@@ -192,8 +221,17 @@ class OutputTests(unittest.TestCase):
 
 class BoundaryTests(unittest.TestCase):
     def quartz(self, value):
-        names = ["KeyDown", "KeyUp", "FlagsChanged", "LeftMouseDown", "LeftMouseUp",
-                 "RightMouseDown", "RightMouseUp", "OtherMouseDown", "OtherMouseUp"]
+        names = [
+            "KeyDown",
+            "KeyUp",
+            "FlagsChanged",
+            "LeftMouseDown",
+            "LeftMouseUp",
+            "RightMouseDown",
+            "RightMouseUp",
+            "OtherMouseDown",
+            "OtherMouseUp",
+        ]
         q = SimpleNamespace(kCGEventSourceStateCombinedSessionState=0)
         for index, name in enumerate(names):
             setattr(q, "kCGEvent" + name, index)
@@ -210,18 +248,26 @@ class BoundaryTests(unittest.TestCase):
             self.assertEqual(result["keyboard"]["status"], "unavailable")
             self.assertIsNone(result["mouse_button"]["age_seconds"])
         q = self.quartz(1)
+
         def fail(*args):
             raise RuntimeError("private diagnostic not to be logged")
+
         q.CGEventSourceSecondsSinceLastEventType = fail
         self.assertEqual(main.input_ages(q)["keyboard"]["error_type"], "RuntimeError")
         self.assertEqual(main.input_ages(None)["keyboard"]["status"], "unavailable")
 
     def test_app_metadata_missing_bundle(self):
-        native = SimpleNamespace(bundleURL=lambda: None, processIdentifier=lambda: 7,
-                                 localizedName=lambda: None, bundleIdentifier=lambda: None)
+        native = SimpleNamespace(
+            bundleURL=lambda: None,
+            processIdentifier=lambda: 7,
+            localizedName=lambda: None,
+            bundleIdentifier=lambda: None,
+        )
         self.assertIsNone(main.app_metadata(None, None))
-        self.assertEqual(main.app_metadata(native, None), dict(pid=7, name=None,
-                         bundle_id=None, version=None, build=None))
+        self.assertEqual(
+            main.app_metadata(native, None),
+            dict(pid=7, name=None, bundle_id=None, version=None, build=None),
+        )
 
     def test_safe_file_append_flush_and_rejection(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -254,47 +300,80 @@ class BoundaryTests(unittest.TestCase):
     def test_native_adapter_notifications_and_cleanup_with_local_fakes(self):
         callbacks = {}
         removed = []
+
         def register_callback(name, obj, queue, block):
             callbacks[name] = block
             return name
+
         center = SimpleNamespace(
             addObserverForName_object_queue_usingBlock_=register_callback,
-            removeObserver_=removed.append)
-        workspace = SimpleNamespace(notificationCenter=lambda: center,
-                                    frontmostApplication=lambda: None)
-        kit = SimpleNamespace(NSWorkspace=SimpleNamespace(sharedWorkspace=lambda: workspace),
-                              NSWorkspaceApplicationKey="application")
-        suffixes = ("DidActivateApplication", "DidDeactivateApplication", "DidLaunchApplication",
-                    "DidTerminateApplication", "DidHideApplication", "DidUnhideApplication",
-                    "ActiveSpaceDidChange")
+            removeObserver_=removed.append,
+        )
+        workspace = SimpleNamespace(
+            notificationCenter=lambda: center, frontmostApplication=lambda: None
+        )
+        kit = SimpleNamespace(
+            NSWorkspace=SimpleNamespace(sharedWorkspace=lambda: workspace),
+            NSWorkspaceApplicationKey="application",
+        )
+        suffixes = (
+            "DidActivateApplication",
+            "DidDeactivateApplication",
+            "DidLaunchApplication",
+            "DidTerminateApplication",
+            "DidHideApplication",
+            "DidUnhideApplication",
+            "ActiveSpaceDidChange",
+        )
         for suffix in suffixes:
             setattr(kit, "NSWorkspace" + suffix + "Notification", suffix)
         fail_callback = False
+
         def user_info():
             if fail_callback:
                 raise RuntimeError("notification conversion failed")
             return None
+
         def run(date):
             for callback in callbacks.values():
                 callback(SimpleNamespace(userInfo=user_info))
             signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
-        foundation = SimpleNamespace(NSBundle=None,
+
+        foundation = SimpleNamespace(
+            NSBundle=None,
             NSDate=SimpleNamespace(dateWithTimeIntervalSinceNow_=lambda value: value),
             NSOperationQueue=SimpleNamespace(mainQueue=lambda: None),
-            NSRunLoop=SimpleNamespace(mainRunLoop=lambda: SimpleNamespace(runUntilDate_=run)))
+            NSRunLoop=SimpleNamespace(mainRunLoop=lambda: SimpleNamespace(runUntilDate_=run)),
+        )
         old = signal.getsignal(signal.SIGINT)
         stream = io.StringIO()
         stdout = io.StringIO()
         with patch.dict("sys.modules", AppKit=kit, Quartz=self.quartz(3), Foundation=foundation):
             with contextlib.redirect_stdout(stdout):
                 main.track_focus(stream, output="jsonl")
-        self.assertEqual(stdout.getvalue(), "".join(
-            json.dumps(json.loads(line), separators=(",", ":")) + "\n"
-            for line in stream.getvalue().splitlines()))
+        self.assertEqual(
+            stdout.getvalue(),
+            "".join(
+                json.dumps(json.loads(line), separators=(",", ":")) + "\n"
+                for line in stream.getvalue().splitlines()
+            ),
+        )
         events = [json.loads(line)["event"] for line in stream.getvalue().splitlines()]
-        self.assertEqual(events, ["session_start", "initial_focus", "activation", "deactivation",
-                                 "launch", "termination", "hide", "unhide", "space_change",
-                                 "session_stop"])
+        self.assertEqual(
+            events,
+            [
+                "session_start",
+                "initial_focus",
+                "activation",
+                "deactivation",
+                "launch",
+                "termination",
+                "hide",
+                "unhide",
+                "space_change",
+                "session_stop",
+            ],
+        )
         self.assertEqual(len(removed), 7)
         self.assertIs(signal.getsignal(signal.SIGINT), old)
         fail_callback = True
@@ -308,12 +387,14 @@ class BoundaryTests(unittest.TestCase):
 
         removed.clear()
         count = 0
+
         def register(*args):
             nonlocal count
             count += 1
             if count == 2:
                 raise RuntimeError("registration failed")
             return "first observer"
+
         center.addObserverForName_object_queue_usingBlock_ = register
         with patch.dict("sys.modules", AppKit=kit, Quartz=self.quartz(3), Foundation=foundation):
             with contextlib.redirect_stdout(io.StringIO()):

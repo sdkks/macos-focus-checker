@@ -1,0 +1,16 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+focus-events.jsonl
+private*.jsonl
+.env
+.env.*
+.envrc
+.tags
+.symbol-index
+.symbol-index/
+.DS_Store

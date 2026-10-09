@@ -1,0 +1,5 @@
+pyobjc-core==12.2.2
+pyobjc-framework-Cocoa==12.2.2
+pyobjc-framework-Quartz==12.2.2
+pre-commit==4.6.0
+ruff==0.15.12

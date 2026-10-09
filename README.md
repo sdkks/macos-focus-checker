@@ -1,6 +1,88 @@
 # Focus diagnostics (macOS)
 
-Run on the main thread with the existing PyObjC Cocoa/Quartz environment:
+## Setup and development
+
+The monitor requires macOS and PyObjC Cocoa/Quartz. Fresh development environments
+use Python 3.14; install `uv`, Git, and Make first, then run:
+
+```sh
+make setup
+```
+
+When `venv` is absent, setup runs `uv venv venv --python 3.14 --seed`, then
+`venv/bin/python -m pip install -r requirements.txt`, then installs both Git
+hook types using `venv/bin/python -m pre_commit install --hook-type pre-commit
+--hook-type commit-msg`. An existing Python 3.14 virtual environment is reused;
+a different version, broken environment, or non-venv destination is rejected
+**before any install or replacement**. Setup never deletes an existing `venv`.
+If you have a conflicting environment serving a running monitor, leave it intact
+and use a separate fresh checkout for 3.14. Migrate only when you can safely
+stop/restart the monitor yourself.
+
+Requirements pin PyObjC core/Cocoa/Quartz 12.2.2, pre-commit 4.6.0, and Ruff
+0.15.12. Transitive dependencies are resolved by pip (this is not a fully locked
+package set). Setup may download Python and seeded pip via uv, and Python
+packages via pip. The first pre-commit run downloads/builds the official
+Gitleaks v8.30.1 Go hook and may provision a Go toolchain; network access is
+needed for these downloads. No pytest, type checker, or coverage gate is required.
+
+To add hooks independently to an existing usable environment without reinstalling
+its runtime packages:
+
+```sh
+venv/bin/python -m pip install pre-commit==4.6.0 ruff==0.15.12
+make install-hooks
+```
+
+This path does not enforce the fresh-setup Python version. It does not replace
+an existing environment or alter Git's `core.hooksPath`; if a custom hook path
+prevents installation, resolve it yourself before retrying. Missing bootstrap
+tools fail visibly instead of skipping required checks.
+
+Direnv is optional. If you use it, inspect your local `.envrc` yourself and only
+then decide whether to run `direnv allow`. Setup does not install direnv, read or
+write `.envrc`, or approve it. Activation is not required by Make targets.
+
+### Commands and hooks
+
+| Target | Purpose |
+| --- | --- |
+| `make setup` | Safe 3.14 environment setup, requirements, both hooks |
+| `make install-hooks` | Install pre-commit and commit-msg into this checkout |
+| `make test` | Deterministic unittest suite, no native monitor |
+| `make lint` | Ruff lint and import checks |
+| `make format` | Apply Ruff formatting |
+| `make format-check` | Check formatting without edits |
+| `make check` | Lint, format-check, and tests |
+| `make run` | Start the monitor, writing its private default log |
+| `make help` | List targets |
+
+The pre-commit stage separately gates Ruff lint, formatting, and unittest using
+this checkout's `venv`, plus Gitleaks scanning the staged Git changes with
+redacted output. The Python gates run over the whole working tree, even for
+non-Python commits; they never auto-format or skip failures. `make check` covers
+the same Python checks but does not scan secrets. To explicitly check staged
+changes including secrets, run:
+
+```sh
+venv/bin/python -m pre_commit run --hook-stage pre-commit --all-files
+```
+
+Gitleaks still scans **staged** changes, not every untracked/unstaged file, even
+with `--all-files`. Ignored private logs must never be force-added. Fix failed
+checks before committing; do not bypass hooks.
+
+The separate commit-msg stage requires a Conventional Commit subject with a
+nonempty description. Valid examples include `feat: add output`,
+`feat(monitor): add output`, `feat(): add output`, and `fix(monitor)!: change output`.
+Allowed types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style,
+and test. Empty messages, malformed subjects, and whitespace-only descriptions
+are rejected; merge/release messages have no exemption. Use ordinary project
+language in public artifacts, not internal tracking labels or local host details.
+
+## Running the monitor
+
+Run on the main thread with the PyObjC Cocoa/Quartz environment:
 
 ```sh
 venv/bin/python main.py
@@ -80,6 +162,7 @@ Focused deterministic checks (no global input or app switching):
 venv/bin/python -B -m unittest -v test_main
 ```
 
-There is no documented full validation gate. Native smoke testing only verifies
+`make check` is the full Python validation gate; the installed pre-commit hook
+also scans staged changes for secrets. Native smoke testing only verifies
 startup, bindings, run-loop operation and shutdown; it does not reproduce a real
 Firefox focus incident or prove that all workspace notifications are delivered.
